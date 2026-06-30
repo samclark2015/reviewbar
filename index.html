@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Review Bar — Settings</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <main class="settings">
+      <h1>Review Bar</h1>
+
+      <section class="card">
+        <h2>Global settings</h2>
+        <div class="row">
+          <span class="label">Poll interval (seconds)</span>
+          <span class="control">
+            <input id="poll" type="number" min="10" step="5" />
+          </span>
+        </div>
+        <div class="row">
+          <span class="label">Editor command <span class="hint">(<code>{path}</code> is substituted)</span></span>
+          <span class="control">
+            <input id="editor" type="text" placeholder="code {path}" />
+          </span>
+        </div>
+        <div class="row">
+          <span class="label">Launch at login</span>
+          <span class="control control-checkbox">
+            <input id="autostart" type="checkbox" />
+          </span>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>Repositories</h2>
+          <button id="add-repo" type="button">+ Add repository</button>
+        </div>
+        <div id="repos"></div>
+      </section>
+
+      <div class="footer">
+        <span id="status" class="status"></span>
+        <button id="save" type="button" class="primary">Save</button>
+      </div>
+    </main>
+
+    <!-- Populated from `gh` with repos the user can access. -->
+    <datalist id="repo-list"></datalist>
+  </body>
+</html>

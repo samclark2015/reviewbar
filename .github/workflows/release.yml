@@ -1,0 +1,64 @@
+name: Release
+
+# Build a macOS arm64 DMG and publish a CalVer (YYYY.MM.rev) release.
+# Triggered manually; the revision auto-increments within each month.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest # macos-14+ runners are arm64 (native aarch64)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute CalVer version (YYYY.MM.rev)
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PREFIX="$(date -u +%Y.%m)."
+          # Escape dots so the prefix matches literally in the regex.
+          PREFIX_RE=$(printf '%s' "$PREFIX" | sed 's/\./\\./g')
+          REV=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[].tag_name' \
+            | { grep -E "^${PREFIX_RE}[0-9]+$" || true; } \
+            | sed -E "s/^${PREFIX_RE}//" \
+            | sort -n | tail -1)
+          if [ -z "${REV}" ]; then REV=0; else REV=$((REV + 1)); fi
+          VERSION="${PREFIX}${REV}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Release version: ${VERSION}"
+
+      - name: Stamp version into tauri.conf.json
+        run: |
+          tmp=$(mktemp)
+          jq --arg v "${{ steps.ver.outputs.version }}" '.version = $v' \
+            src-tauri/tauri.conf.json > "$tmp" && mv "$tmp" src-tauri/tauri.conf.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tagName: ${{ steps.ver.outputs.version }}
+          releaseName: Review Bar ${{ steps.ver.outputs.version }}
+          releaseDraft: false
+          prerelease: false
+          args: --target aarch64-apple-darwin --bundles dmg
