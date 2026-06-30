@@ -1,9 +1,17 @@
 name: Release
 
-# Build a macOS arm64 DMG and publish a CalVer (YYYY.MM.rev) release.
-# Triggered manually; the revision auto-increments within each month.
+# Build a macOS arm64 DMG and publish a CalVer (YYYY.M.rev) release.
+# Runs on every push to main and on manual dispatch; the revision
+# auto-increments within each month.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+
+# Serialize releases so concurrent pushes don't compute the same revision.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -20,7 +28,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          PREFIX="$(date -u +%Y.%m)."
+          # Month is NOT zero-padded: semver forbids leading zeros, so the
+          # version must be e.g. 2026.6.0, not 2026.06.0.
+          YEAR=$(date -u +%Y)
+          MONTH=$((10#$(date -u +%m)))
+          PREFIX="${YEAR}.${MONTH}."
           # Escape dots so the prefix matches literally in the regex.
           PREFIX_RE=$(printf '%s' "$PREFIX" | sed 's/\./\\./g')
           REV=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[].tag_name' \
