@@ -2,9 +2,7 @@
 
 A cross-platform menu bar / system-tray app that watches GitHub pull requests
 awaiting your review, automatically builds each one in its own git worktree, and
-lets you launch it. It is the cross-platform successor to the macOS-only SwiftBar
-plugin `positron-reviews.2m.py`, generalized so you can watch **any number of
-repositories** and define **per-repo build and launch commands**.
+lets you launch it. 
 
 Built with [Tauri 2](https://tauri.app) — a Rust backend (subprocess
 orchestration, git worktrees, polling) with small web windows for settings and
