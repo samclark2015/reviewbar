@@ -1,9 +1,12 @@
 //! Cross-platform command execution with PATH/env injection.
 //!
 //! GUI apps on macOS launch with a minimal PATH, and the original plugin worked
-//! around this with hardcoded mise shims. Here every command gets the user's
-//! per-repo `path_prepend` plus a set of common bin dirs prepended to PATH, so
-//! `gh`, `git`, `node`, etc. resolve the way they do in a terminal.
+//! around this with hardcoded mise shims. Here `gh`/`git` (run directly) get
+//! the user's per-repo `path_prepend` plus a set of common bin dirs prepended
+//! to PATH. Build/launch commands, by contrast, run through the user's login
+//! shell (see `default_shell`) so their shell rc is sourced and PATH resolves
+//! exactly as it does in a real terminal — covering tools that live outside
+//! mise, like rustup's `~/.cargo/bin`.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -177,11 +180,25 @@ pub fn quote(arg: &str) -> String {
 }
 
 /// Default shell invocation parts for the current OS.
+///
+/// On Unix we run the user's login shell (`$SHELL`) as a *login + interactive*
+/// shell so their shell startup files are sourced — the same as a real
+/// terminal. This matters because tools are often put on PATH by rc files
+/// rather than by mise shims: e.g. rustup's `~/.cargo/bin` is added via
+/// `. "$HOME/.cargo/env"` in `~/.zshrc`, and `mise activate` typically lives
+/// there too. `.zshrc`/`.bashrc` are only sourced for *interactive* shells, so
+/// a login-only shell (`-lc`) would still miss them; hence `-l -i -c`. Callers
+/// must give the child no stdin (`Stdio::null()`), which `shell_command` does,
+/// so the interactive shell can't block waiting for input.
 fn default_shell() -> Vec<String> {
     if cfg!(target_os = "windows") {
-        vec!["cmd".into(), "/C".into()]
-    } else {
-        vec!["sh".into(), "-c".into()]
+        return vec!["cmd".into(), "/C".into()];
+    }
+    match std::env::var("SHELL") {
+        Ok(sh) if !sh.trim().is_empty() => {
+            vec![sh, "-l".into(), "-i".into(), "-c".into()]
+        }
+        _ => vec!["sh".into(), "-c".into()],
     }
 }
 
@@ -206,6 +223,10 @@ pub fn shell_command(
     }
     cmd.arg(script);
     cmd.current_dir(cwd);
+    // Give the shell no stdin so an interactive login shell (see
+    // `default_shell`) never blocks waiting for input. Callers configure
+    // stdout/stderr themselves.
+    cmd.stdin(std::process::Stdio::null());
     apply_env(&mut cmd, env, path_prepend);
     cmd
 }

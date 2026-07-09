@@ -49,7 +49,8 @@ pub struct RepoConfig {
     #[serde(default)]
     pub path_prepend: Vec<String>,
     /// Optional shell override, e.g. `zsh -lc` or `pwsh -Command`. Defaults to
-    /// `sh -c` on Unix and `cmd /C` on Windows.
+    /// the user's login shell run interactively (`$SHELL -l -i -c`) on Unix, so
+    /// shell rc files are sourced, and `cmd /C` on Windows.
     #[serde(default)]
     pub shell: Option<String>,
 }
